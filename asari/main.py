@@ -23,6 +23,9 @@ python3 -m asari.main neg /Users/shuzhao/li.projects/asari/T03
 
 import os, sys
 from .algorithms import Sample, ext_MassTrace, ext_Experiment
+#import asariSpecToChrom
+from .src import asariSpecToChrom
+# specToChrom as stc
 # from .plot import plot_sample_rt_calibration
 
 PARAMETERS = {
@@ -85,6 +88,9 @@ def process_project(list_input_files, dict_meta_data={}, parameters=PARAMETERS, 
 
 def main(directory):
     print("\n\n~~~~~~~ Hello from Asari! ~~~~~~~~~\n")
+    k = asariSpecToChrom.specToChrom()
+    k.set_filename("Joe")
+    k.print_filename()
     process_project(
             read_project_dir(directory), {}, PARAMETERS, directory   #setting output_dir as input dir
     )
