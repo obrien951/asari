@@ -58,6 +58,20 @@ PARAMETERS['min_prominence_threshold'] = PARAMETERS['min_intensity_threshold']/3
 
 def read_project_dir(directory, file_pattern='chrom.mzML'):
     print("\nWorking on ", directory)
+    #don't process processed data
+    mzmlFiles = [os.path.join(directory, f) for f in os.listdir(directory) if f.endswith("mzML") and not f.endswith("chrom.mzML")]
+
+    k = asariSpecToChrom.specToChrom()
+    for mzml in mzmlFiles:
+        chrommzml = mzml.removesuffix(".mzML")
+        chrommzml = chrommzml + "_chrom.mzML"
+        if k.is_set():
+            k.reset()
+        k.set_filename(mzml)
+        k.readSpectra()
+        k.findChromatograms()
+        k.writeChromatograms(chrommzml)
+
     return [os.path.join(directory, f) for f in os.listdir(directory) if file_pattern in f]
 
 def metafile_to_dict(infile):
@@ -88,9 +102,6 @@ def process_project(list_input_files, dict_meta_data={}, parameters=PARAMETERS, 
 
 def main(directory):
     print("\n\n~~~~~~~ Hello from Asari! ~~~~~~~~~\n")
-    k = asariSpecToChrom.specToChrom()
-    k.set_filename("Joe")
-    k.print_filename()
     process_project(
             read_project_dir(directory), {}, PARAMETERS, directory   #setting output_dir as input dir
     )
