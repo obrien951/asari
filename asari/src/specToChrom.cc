@@ -8,7 +8,10 @@
 
 namespace asaristc {
 
-specToChrom::specToChrom() {}
+specToChrom::specToChrom() {
+  tmp_mz_.resize(1048576);
+  tmp_intns_.resize(1048576);
+}
 
 void specToChrom::parse_xml() {
  std::ifstream mzmlFile(readFilename_.c_str());

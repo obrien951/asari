@@ -30,11 +30,26 @@ protected:
 
   std::string readFilename_;
   std::vector<char> parsedMzML_;
+
+  std::vector<char> tmp_mz_;
+  std::vector<char> tmp_intns_;
+  std::vector<char> tmp_cmprs_;
+
+  std::vector<double> step_run_rts_;
+  std::vector<double> step_run_rts_;
+
 }; // class specToChrom
 
 class spectrum {
 public:
+  spectrum(int &n_specs, double &RT);
+  copy_values();
 protected:
+  int n_spec_;
+  double rt_;
+  int id_;
+  double* rts_;
+  double* intns_;
 };
 
 } // namespace asaristc
