@@ -9,6 +9,8 @@
 namespace asaristc {
 
 specToChrom::specToChrom() {
+  current_spec_ = nullptr;
+
   tmp_mz_.resize(1048576);
   tmp_intns_.resize(1048576);
 }
@@ -43,6 +45,41 @@ void specToChrom::set_filename(std::string filename) {
 
 void specToChrom::readSpectra() {
   parse_xml();
+  initiate_spectra();
+}
+
+void specToChrom::initiate_spectra(){
+  spectra_.reserve(spec_count_);
+  int npts;
+  double rt;
+  int id;
+  int ofst = 0;
+  for (int i = 0; i < spec_count_; i++) {
+    advance_run();
+    xmlRtntnTime(rt);
+    xmlSpecPts(npts);
+    if (i==0) {std::cout << npts << std::endl;}
+    spectra_.push_back(spectrum(npts, rt, i, ofst));
+    ofst += npts;
+  }
+  rts_.resize(ofst);
+  intns_.resize(ofst);
+}
+
+void specToChrom::advance_run() {
+  if (current_spec_ == nullptr) {
+    current_spec_ = lcms_DOC_.first_node()
+                        ->first_node()
+                        ->first_node("run")
+                        ->first_node("spectrumList")
+                        ->first_node("spectrum");
+  } else if (std::stoi(current_spec_->first_attribute("index")->value()) ==
+             (spec_count_ - 1)) {
+    current_spec_ = nullptr;
+    return;
+  } else {
+    current_spec_ = current_spec_->next_sibling();
+  }
 }
 
 void specToChrom::findChromatograms(){
@@ -61,6 +98,8 @@ void specToChrom::reset() {
   lcms_DOC_.clear();
   chrom_doc_.clear();
   parsedMzML_.clear();
+  spectra_.clear();
+  current_spec_ = nullptr;
 }
 
 } // namespace asaristc
