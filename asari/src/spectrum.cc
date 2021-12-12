@@ -1,4 +1,5 @@
 #include "specToChrom.h"
+#include <iostream>
 #include <cstring>
 
 namespace asaristc {
@@ -10,9 +11,9 @@ spectrum::spectrum(int &n_pts, double &RT, int &id, int &offset) {
   offset_ = offset;
 }
 
-void spectrum::pointers_to_offset(double* study_start) {
-  mzs_ = study_start + offset_;
-  intns_ = study_start + offset_;
+void spectrum::pointers_to_offset(double* mz_start, double* intns_start) {
+  mzs_ = mz_start + offset_;
+  intns_ = intns_start + offset_;
 }
 
 void spectrum::copy_values(int &count, double* mzs, double * intns) {
