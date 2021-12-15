@@ -87,7 +87,9 @@ void specToChrom::convert_spectra(){
     intns = spectra_[i].get_intns();
     spec_data_from_b64(mz, intns);
   }
-  check_spec(0);
+  std::cout << "smallest_mz_ is " << smallest_mz_ << std::endl;
+  std::cout << "biggest_mz_ is " << biggest_mz_ << std::endl;
+  //check_spec(0);
 }// specToChrom::convert_spectra
 
 void specToChrom::check_spec(int spec_id){
@@ -101,6 +103,7 @@ void specToChrom::check_spec(int spec_id){
 void specToChrom::spec_data_from_b64(double* mz, double* intns) {
   set_mz_intns();
   decoding_step();
+  min_max_mz();
   decompression_step(mz, intns);
 }// void specToChrom::spec_data_from_b64
 
@@ -232,8 +235,29 @@ void specToChrom::specRunToFront() {
 }
 
 void specToChrom::findChromatograms(){
+  calc_windows();
 }
 
+
+void specToChrom::calc_windows(){
+  /* first count the number of windows */
+  double current_wall = smallest_mz_;
+  int wall_count = 1;
+  double bot_factor = 1 / (1 - (2*width_));
+  std::cout << "bot_factor is " << bot_factor << std::endl;
+  while (current_wall < biggest_mz_){
+    current_wall  = current_wall * bot_factor;
+    wall_count++;
+    //std::cout << current_wall << std::endl;
+  }
+
+  windows_.resize(wall_count);
+  windows_[0] = smallest_mz_;
+
+  for (int i = 1; i < wall_count; i++) {
+    windows_[i] = windows_[i-1] * bot_factor;
+  }
+}
 
 void specToChrom::writeChromatograms(std::string fname){
 

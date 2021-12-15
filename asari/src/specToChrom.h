@@ -82,6 +82,8 @@ protected:
   void decompression_step(double* mz, double* intns);
   void check_spec(int spec_id);
 
+  void calc_windows();
+
   /* reset linked list traversal to front */
   void specRunToFront();
 
@@ -112,6 +114,31 @@ protected:
     pts = std::stoi(current_spec_->first_attribute("defaultArrayLength")->value());
   }
 
+  /* we need to know what the biggest and smallest mz values */
+  inline void min_max_mz(){
+    for (spec_paramlist_ = current_spec_->first_node("cvParam");
+         spec_paramlist_; spec_paramlist_ = spec_paramlist_
+                                            ->next_sibling("cvParam") ) {  
+      char * acc = spec_paramlist_->first_attribute("accession")->value();
+      switch ( std::stoi( &acc[3]) ) {
+        case 1000528:
+          smallest_mz_ = std::min(smallest_mz_,
+                                  std::stod(spec_paramlist_
+                                  ->first_attribute("value")
+                                  ->value()));
+          break;
+        case 1000527:
+          biggest_mz_ = std::max(biggest_mz_, 
+                                 std::stod(spec_paramlist_
+                                 ->first_attribute("value")
+                                 ->value()));
+          break;
+      }
+    }
+  }
+  //double biggest_mz_=-1.0;
+  //double smallest_mz_ = 2e29;
+
   /* rapidxml document used for parsing mzml data */
   rapidxml::xml_document<> lcms_DOC_;
 
@@ -127,6 +154,9 @@ protected:
   rapidxml::xml_node<> * current_spec_;
   rapidxml::xml_node<> * current_mz_;
   rapidxml::xml_node<> * current_intns_;
+
+  double tolerance_ = 5.0;
+  double width_ = tolerance_ * 1e-6;
 
   int hold_fpe_;
   int hold_zlc_;
@@ -163,10 +193,15 @@ protected:
   std::vector<double> mzs_;
   std::vector<double> intns_;
 
+  std::vector<double> windows_;
+
   std::vector<spectrum> spectra_;
 
   int INSTAT_;
   int MZSTAT_;
+
+  double biggest_mz_=-1.0;
+  double smallest_mz_ = 2e29;
 
 }; // class specToChrom
 
