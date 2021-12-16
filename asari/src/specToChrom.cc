@@ -236,8 +236,11 @@ void specToChrom::specRunToFront() {
 
 void specToChrom::findChromatograms(){
   calc_windows();
+  /* count the points for each window in each spectrum */
+  account_for_points();
+  /* This is the function where we allocate space for points */
+  fill_windows();
 }
-
 
 void specToChrom::calc_windows(){
   /* first count the number of windows */
@@ -257,10 +260,108 @@ void specToChrom::calc_windows(){
   for (int i = 1; i < wall_count; i++) {
     windows_[i] = windows_[i-1] * bot_factor;
   }
+  for (int i = 1; i < wall_count; i++) {
+    if (windows_[i] < 70.0) {
+      std::cout << "i is " << i << "windows_[i] is " << windows_[i] << std::endl;
+    }
+  }
+}
+
+void specToChrom::account_for_points() {
+  for (int i = 0; i < windows_.size(); i++) {
+    if (windows_[i] < 70.0) {
+      std::cout << windows_[i] << std::endl;
+    }
+  }
+  int wind_ind = 0;
+  int n_wind = 0;
+  int point_ofs = 0;
+  std::vector<int> window_counts;
+  /* the last element will ALWAYS be 0*/
+  big_points_=0;
+  window_counts.resize(windows_.size(),0);
+  //std::cout << "wondow_counts.size() is " << window_counts.size() << std::endl;
+  double * spec_i_mzs_;
+  double * spec_i_intns_;
+
+  for (int i = 0; i < spectra_.size(); i++) {
+    spec_i_mzs_ = spectra_[i].get_mzs();
+    spec_i_intns_ = spectra_[i].get_intns();
+    for (int j = 0; j < spectra_[i].get_n_pts(); j++) {
+      if (spec_i_intns_[j] < minimum_intensity_) {
+        continue;
+      }
+      /* climb up to the right window. the for loop overshoots by 1,
+         so count it back down */
+      while ( spec_i_mzs_[j] > windows_[wind_ind+1] ) {wind_ind++;}
+      
+      window_counts[wind_ind]++;
+    }
+    wind_ind = 0;
+  }
+  std::cout << "before counting windows" << std::endl;
+  for (int i = 0; i < window_counts.size(); i++) {
+    if (window_counts[i]!=0) {
+      n_wind++;
+      big_points_+=window_counts[i];
+    }
+  }
+  mz_windows_.resize(n_wind);
+  win_to_mzwin_.resize(n_wind);
+  wind_ind = 0;
+  for (int i = 0; i < window_counts.size(); i++) {
+    if (window_counts[i]!=0) {
+      mz_windows_[wind_ind].min_mz_ = windows_[i];
+      mz_windows_[wind_ind].min_ind_ = i;
+      mz_windows_[wind_ind].population_ = window_counts[i];
+      mz_windows_[wind_ind].start_ = &point_windows_[point_ofs];
+
+      win_to_mzwin_[wind_ind] = i;
+
+      wind_ind++;
+      point_ofs += window_counts[i];
+    }
+  }
+
+}
+
+void specToChrom::fill_windows(){
+  /* how many points have we touched yet? */
+  std::cout << "inside specToChrom::fill_windows" << std::endl;
+  double * spec_i_mzs_;
+  double * spec_i_intns_;
+  int pw_address = 0;
+  int specId;
+  int wind_ind;
+  point_windows_.resize(big_points_);
+
+  for (int i = 0; i < spectra_.size(); i++) {
+    wind_ind=0;
+    specId = spectra_[i].get_id();
+    for (int j = 0; j < spectra_[i].get_n_pts(); j++) {
+      if (spec_i_intns_[j] < minimum_intensity_) { continue; }
+      while ( spec_i_mzs_[j] > windows_[wind_ind+1] ) {wind_ind++;}
+      point_windows_[pw_address].mz_ = spec_i_mzs_[j];
+      point_windows_[pw_address].intensity_ = spec_i_intns_[j];
+      point_windows_[pw_address].spec_id_ = specId;
+      point_windows_[pw_address].chrom_id_ = -1;
+      if ( &spec_i_mzs_[j] > &mzs_[ mzs_.size()] ) {
+        std::cout << "mzs_ overwritten" << std::endl;
+      }
+      pw_address++;
+      if (pw_address > big_points_) {
+        std::cout << "pw violates" << std::endl;
+      }
+    }
+  }
 }
 
 void specToChrom::writeChromatograms(std::string fname){
-
+  point * chek_ptr;
+  chek_ptr = mz_windows_[0].start_;
+  std::cout << chek_ptr[mz_windows_[0].population_ - 1].mz_ << " " << chek_ptr[mz_windows_[0].population_ - 1].spec_id_  << std::endl;
+  chek_ptr = mz_windows_[1].start_;
+  std::cout << chek_ptr[0].mz_ << chek_ptr[0].spec_id_ << std::endl;
 }
 
 void specToChrom::print_filename () {

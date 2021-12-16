@@ -9,6 +9,7 @@ PYBIND11_MODULE(asariSpecToChrom, m) {
   py::class_<asaristc::specToChrom>(m, "specToChrom")
     .def(py::init<>())
     .def("set_filename", &asaristc::specToChrom::set_filename)
+    .def("set_minimum_intensity", &asaristc::specToChrom::set_minimum_intensity)
     .def("print_filename", &asaristc::specToChrom::print_filename)
     .def("is_set", &asaristc::specToChrom::is_set)
     .def("reset", &asaristc::specToChrom::reset)

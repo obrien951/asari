@@ -12,12 +12,29 @@
 
 namespace asaristc {
 
+struct point {
+  double mz_;
+  double intensity_;
+  int spec_id_;
+  int chrom_id_;
+};
+
+struct mz_window {
+  double min_mz_;
+  /* index of min_mz_ in windows_ */
+  int min_ind_;
+  int population_;
+  point * start_;  
+};
+
 class spectrum {
 public:
   spectrum(int &n_pts, double &RT, int &id, int &offset);
   void copy_values(int &count, double* mzs, double * intns);
   //sets the classes data pointers to the address study_start + offset_
   void pointers_to_offset(double* mz_start, double * intns_start);
+
+  int get_id() {return id_;}
 
   int get_n_pts() {return n_pts_;}
 
@@ -47,6 +64,10 @@ public:
   /* set the name of the mzml file used for data input. 
    * EXPORTED TO PYTHON */
   void set_filename(std::string filename);
+
+  void set_minimum_intensity(double minimum_intensity) {
+    minimum_intensity_ = minimum_intensity;
+  }
   /* Print the name of the mzml file to screen
    * EXPORTED TO PYTHON */
   void print_filename();
@@ -82,7 +103,10 @@ protected:
   void decompression_step(double* mz, double* intns);
   void check_spec(int spec_id);
 
+  /* determine the necessary window boundaries for this lcms run */
   void calc_windows();
+  void account_for_points();
+  void fill_windows();
 
   /* reset linked list traversal to front */
   void specRunToFront();
@@ -158,6 +182,8 @@ protected:
   double tolerance_ = 5.0;
   double width_ = tolerance_ * 1e-6;
 
+  double minimum_intensity_;
+
   int hold_fpe_;
   int hold_zlc_;
 
@@ -181,6 +207,8 @@ protected:
 
   int spec_count_;
 
+  int big_points_ = 0;
+
   std::string readFilename_;
   std::vector<char> parsedMzML_;
 
@@ -194,6 +222,15 @@ protected:
   std::vector<double> intns_;
 
   std::vector<double> windows_;
+  std::vector<mz_window> mz_windows_;
+  std::vector<point> point_windows_;
+
+  std::vector<int> win_to_mzwin_;
+
+  /* addresses of points in point_windows */
+  /* this list will be sorted so that 
+   * point_windows_[windows_addresses_[0]] is the highest intensity point */
+  std::vector<int> window_addresses_;
 
   std::vector<spectrum> spectra_;
 

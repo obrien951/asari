@@ -68,6 +68,7 @@ def read_project_dir(directory, file_pattern='chrom.mzML'):
         if k.is_set():
             k.reset()
         k.set_filename(mzml)
+        k.set_minimum_intensity(PARAMETERS["min_intensity_threshold"])
         k.readSpectra()
         k.findChromatograms()
         k.writeChromatograms(chrommzml)
