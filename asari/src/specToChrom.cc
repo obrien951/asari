@@ -3,6 +3,7 @@
 #include <fstream>
 #include <vector>
 #include <iostream>
+#include <algorithm>
 #include <memory>
 #include <zlib.h>
 
@@ -238,8 +239,11 @@ void specToChrom::findChromatograms(){
   calc_windows();
   /* count the points for each window in each spectrum */
   account_for_points();
-  /* This is the function where we allocate space for points */
+  /* This is the function where we allocate space for points 
+   *   sorts points by intensity */
   fill_windows();
+
+  /* form chromatograms */
 }
 
 void specToChrom::calc_windows(){
@@ -280,7 +284,7 @@ void specToChrom::account_for_points() {
   /* the last element will ALWAYS be 0*/
   big_points_=0;
   window_counts.resize(windows_.size(),0);
-  //std::cout << "wondow_counts.size() is " << window_counts.size() << std::endl;
+
   double * spec_i_mzs_;
   double * spec_i_intns_;
 
@@ -294,23 +298,29 @@ void specToChrom::account_for_points() {
       /* climb up to the right window. the for loop overshoots by 1,
          so count it back down */
       while ( spec_i_mzs_[j] > windows_[wind_ind+1] ) {wind_ind++;}
-      
+     
       window_counts[wind_ind]++;
     }
     wind_ind = 0;
   }
-  std::cout << "before counting windows" << std::endl;
+
   for (int i = 0; i < window_counts.size(); i++) {
     if (window_counts[i]!=0) {
       n_wind++;
       big_points_+=window_counts[i];
     }
   }
+
+  point_windows_.resize(big_points_);
+  window_addresses_.resize(big_points_);
+
   mz_windows_.resize(n_wind);
   win_to_mzwin_.resize(n_wind);
   wind_ind = 0;
+  int if_counter=0;
   for (int i = 0; i < window_counts.size(); i++) {
     if (window_counts[i]!=0) {
+
       mz_windows_[wind_ind].min_mz_ = windows_[i];
       mz_windows_[wind_ind].min_ind_ = i;
       mz_windows_[wind_ind].population_ = window_counts[i];
@@ -327,17 +337,17 @@ void specToChrom::account_for_points() {
 
 void specToChrom::fill_windows(){
   /* how many points have we touched yet? */
-  std::cout << "inside specToChrom::fill_windows" << std::endl;
   double * spec_i_mzs_;
   double * spec_i_intns_;
   int pw_address = 0;
   int specId;
   int wind_ind;
-  point_windows_.resize(big_points_);
 
   for (int i = 0; i < spectra_.size(); i++) {
     wind_ind=0;
     specId = spectra_[i].get_id();
+    spec_i_mzs_ = spectra_[i].get_mzs();
+    spec_i_intns_ = spectra_[i].get_intns();
     for (int j = 0; j < spectra_[i].get_n_pts(); j++) {
       if (spec_i_intns_[j] < minimum_intensity_) { continue; }
       while ( spec_i_mzs_[j] > windows_[wind_ind+1] ) {wind_ind++;}
@@ -345,23 +355,26 @@ void specToChrom::fill_windows(){
       point_windows_[pw_address].intensity_ = spec_i_intns_[j];
       point_windows_[pw_address].spec_id_ = specId;
       point_windows_[pw_address].chrom_id_ = -1;
-      if ( &spec_i_mzs_[j] > &mzs_[ mzs_.size()] ) {
-        std::cout << "mzs_ overwritten" << std::endl;
-      }
       pw_address++;
-      if (pw_address > big_points_) {
-        std::cout << "pw violates" << std::endl;
-      }
     }
   }
+
+  for (int i = 0; i < window_addresses_.size(); i++) {
+    window_addresses_[i] = i;
+  }
+  
+  std::sort(window_addresses_.begin(), window_addresses_.end(), [&](int a, int b){
+    return point_windows_[a].intensity_ > point_windows_[b].intensity_;
+  });
+
+  for (int i = 0; i < point_windows_.size(); i++) {
+    std::cout << point_windows_[window_addresses_[i]].intensity_ << std::endl;
+  }
+
 }
 
 void specToChrom::writeChromatograms(std::string fname){
-  point * chek_ptr;
-  chek_ptr = mz_windows_[0].start_;
-  std::cout << chek_ptr[mz_windows_[0].population_ - 1].mz_ << " " << chek_ptr[mz_windows_[0].population_ - 1].spec_id_  << std::endl;
-  chek_ptr = mz_windows_[1].start_;
-  std::cout << chek_ptr[0].mz_ << chek_ptr[0].spec_id_ << std::endl;
+  
 }
 
 void specToChrom::print_filename () {
