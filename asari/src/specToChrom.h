@@ -1,6 +1,8 @@
 #ifndef __ASARI_SPECTOCHROM__
 #define __ASARI_SPECTOCHROM__
 
+#define UNASSIGNED -1
+
 #include <vector>
 #include <cstring>
 #include <string>
@@ -17,6 +19,13 @@ struct point {
   double intensity_;
   int spec_id_;
   int chrom_id_;
+  int window_id_;
+};
+
+struct asari_point {
+  double mz_;
+  double rt_;
+  double intn_;
 };
 
 struct mz_window {
@@ -54,6 +63,14 @@ protected:
   double* mzs_;
   /* location of this spectrum's intensity values in the global array */
   double* intns_;
+};
+
+class chromatogram {
+public:
+  chromatogram(int &count, point &peak, double * mzs, double * rts, double * intns);
+protected:
+  double mz_;
+  std::vector<asari_point> data;
 };
 
 // reads spectra from an mzML file then writes them to a chromatogram file
@@ -107,6 +124,12 @@ protected:
   void calc_windows();
   void account_for_points();
   void fill_windows();
+  void form_chromatograms();
+
+  void neighbor_tables();
+
+  void check_point(point &candidate, int &n_points, mz_window * lower_w,
+                   mz_window * same_w, mz_window * high_w);
 
   /* reset linked list traversal to front */
   void specRunToFront();
@@ -209,6 +232,8 @@ protected:
 
   int big_points_ = 0;
 
+  int chrom_count_;
+
   std::string readFilename_;
   std::vector<char> parsedMzML_;
 
@@ -226,11 +251,16 @@ protected:
   std::vector<point> point_windows_;
 
   std::vector<int> win_to_mzwin_;
+  std::vector<int> mzwin_to_win_;;
+
+  std::vector<bool> bigger_NT_;
+  std::vector<bool> smaller_NT_;
 
   /* addresses of points in point_windows */
   /* this list will be sorted so that 
    * point_windows_[windows_addresses_[0]] is the highest intensity point */
   std::vector<int> window_addresses_;
+
 
   std::vector<spectrum> spectra_;
 
@@ -239,6 +269,8 @@ protected:
 
   double biggest_mz_=-1.0;
   double smallest_mz_ = 2e29;
+
+  std::vector<std::shared_ptr<chromatogram>> chromatograms;
 
 }; // class specToChrom
 

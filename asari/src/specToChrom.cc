@@ -10,6 +10,12 @@
 #include "base64.h"
 #include "specToChrom.h"
 
+
+#ifndef UNASSIGNED
+#define UNASSIGNED -1
+#endif
+
+
 namespace asaristc {
 
 specToChrom::specToChrom() {
@@ -242,8 +248,8 @@ void specToChrom::findChromatograms(){
   /* This is the function where we allocate space for points 
    *   sorts points by intensity */
   fill_windows();
-
   /* form chromatograms */
+  form_chromatograms();
 }
 
 void specToChrom::calc_windows(){
@@ -264,11 +270,7 @@ void specToChrom::calc_windows(){
   for (int i = 1; i < wall_count; i++) {
     windows_[i] = windows_[i-1] * bot_factor;
   }
-  for (int i = 1; i < wall_count; i++) {
-    if (windows_[i] < 70.0) {
-      std::cout << "i is " << i << "windows_[i] is " << windows_[i] << std::endl;
-    }
-  }
+  win_to_mzwin_.resize(wall_count, -1);
 }
 
 void specToChrom::account_for_points() {
@@ -306,6 +308,7 @@ void specToChrom::account_for_points() {
 
   for (int i = 0; i < window_counts.size(); i++) {
     if (window_counts[i]!=0) {
+      win_to_mzwin_[i]=n_wind;
       n_wind++;
       big_points_+=window_counts[i];
     }
@@ -326,7 +329,7 @@ void specToChrom::account_for_points() {
       mz_windows_[wind_ind].population_ = window_counts[i];
       mz_windows_[wind_ind].start_ = &point_windows_[point_ofs];
 
-      win_to_mzwin_[wind_ind] = i;
+      mzwin_to_win_[wind_ind] = i;
 
       wind_ind++;
       point_ofs += window_counts[i];
@@ -354,7 +357,8 @@ void specToChrom::fill_windows(){
       point_windows_[pw_address].mz_ = spec_i_mzs_[j];
       point_windows_[pw_address].intensity_ = spec_i_intns_[j];
       point_windows_[pw_address].spec_id_ = specId;
-      point_windows_[pw_address].chrom_id_ = -1;
+      point_windows_[pw_address].chrom_id_ = UNASSIGNED;
+      point_windows_[pw_address].window_id_ = wind_ind;
       pw_address++;
     }
   }
@@ -367,10 +371,85 @@ void specToChrom::fill_windows(){
     return point_windows_[a].intensity_ > point_windows_[b].intensity_;
   });
 
-  for (int i = 0; i < point_windows_.size(); i++) {
+
+  /*for (int i = 0; i < point_windows_.size(); i++) {
     std::cout << point_windows_[window_addresses_[i]].intensity_ << std::endl;
+  } */
+
+}
+
+/* figure out if the neighboring windows are actually neighboring m/z regions */
+void specToChrom::neighbor_tables(){
+  double bot_factor = 1 / (1 - (2*width_));
+  bigger_NT_.resize(mz_windows_.size(), false);
+  smaller_NT_.resize(mz_windows_.size(), false);
+ 
+  smaller_NT_[0] = false;
+  bigger_NT_[mz_windows_.size()-1] = false;
+ 
+  for (int i = 1; i < mz_windows_.size()-1; i++) {
+    smaller_NT_[i] = 
+!(std::abs(
+(mz_windows_[i-1].min_mz_ * width_* 2 * bot_factor) - mz_windows_[i].min_mz_
+) > 1e-11) ;
+    bigger_NT_[i] = 
+!(std::abs(
+(mz_windows_[i].min_mz_ * width_* 2 * bot_factor) - mz_windows_[i+1].min_mz_
+)>1e-11);
   }
 
+}
+
+void specToChrom::form_chromatograms(){
+  neighbor_tables();
+  int max_points = 0;
+  int local_points;
+  int mz_window_id;
+  mz_window * lower_w = nullptr;
+  mz_window * same_w = nullptr;
+  mz_window * high_w = nullptr;
+  chrom_count_ = 0;
+  for (int i =0; i < window_addresses_.size(); i++) {
+    if ( point_windows_[ window_addresses_[i] ].chrom_id_ !=UNASSIGNED ) {
+      continue;
+    }
+
+    mz_window_id = win_to_mzwin_[ point_windows_[ window_addresses_[i] ] .window_id_] ;
+
+    same_w = &mz_windows_[ mz_window_id ];
+
+    if (!smaller_NT_[ win_to_mzwin_[point_windows_[window_addresses_[i]].window_id_]] ) {
+      lower_w = nullptr;
+    } else {
+      lower_w = &mz_windows_[ mz_window_id -1 ];
+    }
+
+    if (!bigger_NT_[ win_to_mzwin_[point_windows_[window_addresses_[i]].window_id_  ]] ) {
+      high_w = nullptr;
+    } else {
+      high_w = &mz_windows_[ mz_window_id +1 ];
+    }
+
+    check_point( point_windows_[ window_addresses_[i] ], local_points, lower_w, same_w, high_w );
+    max_points = std::max(max_points, local_points);
+  }
+}
+
+void specToChrom::check_point(point &candidate, int &n_points, 
+                              mz_window * lower_w,  mz_window * same_w, 
+                              mz_window * high_w) {
+
+
+  /* if ( win_to_mzwin_[candidate_[window_id_]] ==0 ) {
+  } else if ( win_to_mzwin_[candidate_[window_id_]] == 
+              static_cast<int>((mz_windows_.size()-1))){
+// default case
+  } else {
+    lower_w = 
+    same_w = 
+    high_w = 
+  } */
+  
 }
 
 void specToChrom::writeChromatograms(std::string fname){
