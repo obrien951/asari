@@ -253,6 +253,7 @@ void specToChrom::findChromatograms(){
 }
 
 void specToChrom::calc_windows(){
+  std::cout << "entering specToChrom::calc_windows(" << std::endl;
   /* first count the number of windows */
   double current_wall = smallest_mz_;
   int wall_count = 1;
@@ -271,9 +272,11 @@ void specToChrom::calc_windows(){
     windows_[i] = windows_[i-1] * bot_factor;
   }
   win_to_mzwin_.resize(wall_count, -1);
+  std::cout << "leaving specToChrom::calc_windows(" << std::endl;
 }
 
 void specToChrom::account_for_points() {
+std::cout << "entering specToChrom::account_for_points" << std::endl;
   for (int i = 0; i < windows_.size(); i++) {
     if (windows_[i] < 70.0) {
       std::cout << windows_[i] << std::endl;
@@ -306,6 +309,8 @@ void specToChrom::account_for_points() {
     wind_ind = 0;
   }
 
+std::cout << "before counting big_points_" << std::endl;
+
   for (int i = 0; i < window_counts.size(); i++) {
     if (window_counts[i]!=0) {
       win_to_mzwin_[i]=n_wind;
@@ -314,37 +319,64 @@ void specToChrom::account_for_points() {
     }
   }
 
+std::cout << "after counting big_points_" << std::endl;
+
   point_windows_.resize(big_points_);
   window_addresses_.resize(big_points_);
 
   mz_windows_.resize(n_wind);
   win_to_mzwin_.resize(n_wind);
+  mzwin_to_win_.resize(n_wind);
   wind_ind = 0;
   int if_counter=0;
+
+std::cout << "before assigning window params" << std::endl;
+
   for (int i = 0; i < window_counts.size(); i++) {
     if (window_counts[i]!=0) {
 
       mz_windows_[wind_ind].min_mz_ = windows_[i];
+      //std::cout << "windows_[i]" << std::endl;
       mz_windows_[wind_ind].min_ind_ = i;
+      //std::cout << "i" << std::endl;
       mz_windows_[wind_ind].population_ = window_counts[i];
+      //std::cout << "window_counts[i]" << std::endl;
       mz_windows_[wind_ind].start_ = &point_windows_[point_ofs];
 
+      //std::cout << "&point_windows_[point_ofs]" << std::endl;
+
       mzwin_to_win_[wind_ind] = i;
+
+      //std::cout << " mzwin_to_win_[wind_ind] = i;" << std::endl;
 
       wind_ind++;
       point_ofs += window_counts[i];
     }
   }
 
+std::cout << "after assigning window params" << std::endl;
+std::cout << "leaving specToChrom::account_for_points" << std::endl;
 }
 
 void specToChrom::fill_windows(){
+  std::cout << "entering specToChrom::fill_windows" << std::endl;
   /* how many points have we touched yet? */
   double * spec_i_mzs_;
   double * spec_i_intns_;
   int pw_address = 0;
   int specId;
   int wind_ind;
+  point * destination;
+
+  std::vector<int> wind_pops(mz_windows_.size());
+  std::fill(wind_pops.begin(),wind_pops.end(),0);
+
+  std::cout << "before windows" << std::endl;
+  for (int i = 0; i < win_to_mzwin_.size(); i++) {
+    std::cout << win_to_mzwin_[i] << std::endl;
+  }
+
+  int mz_wind_ind;
 
   for (int i = 0; i < spectra_.size(); i++) {
     wind_ind=0;
@@ -354,14 +386,41 @@ void specToChrom::fill_windows(){
     for (int j = 0; j < spectra_[i].get_n_pts(); j++) {
       if (spec_i_intns_[j] < minimum_intensity_) { continue; }
       while ( spec_i_mzs_[j] > windows_[wind_ind+1] ) {wind_ind++;}
+
+      mz_wind_ind = win_to_mzwin_[wind_ind];
+
+      if (mz_wind_ind==-1) {std::cout << "mz_wind_ind ==0" << std::endl; double saboteur = * (double *)nullptr; }
+
+      destination = &(mz_windows_[ mz_wind_ind  ].start_[ wind_pops[ mz_wind_ind ] ]);
+
+      (*destination).mz_ = spec_i_mzs_[j];
+      (*destination).intensity_ = spec_i_intns_[j];
+      (*destination).spec_id_ = specId;
+      (*destination).chrom_id_ = UNASSIGNED;
+      (*destination).window_id_ = wind_ind;
+
+      wind_pops[ mz_wind_ind ]++;
+
+      /*
       point_windows_[pw_address].mz_ = spec_i_mzs_[j];
       point_windows_[pw_address].intensity_ = spec_i_intns_[j];
       point_windows_[pw_address].spec_id_ = specId;
       point_windows_[pw_address].chrom_id_ = UNASSIGNED;
       point_windows_[pw_address].window_id_ = wind_ind;
-      pw_address++;
+*/
+      //pw_address++;
+
     }
+  } 
+
+  {
+  std::ofstream out_putf("/home/joseph/Practice/chromatograms/tryfile.txt");
+  for (int i = 0; i < point_windows_.size(); i++) {
+    out_putf << point_windows_[i].mz_ << " " << point_windows_[i].intensity_ << std::endl;
   }
+  out_putf.close();
+  }
+
 
   for (int i = 0; i < window_addresses_.size(); i++) {
     window_addresses_[i] = i;
@@ -374,8 +433,9 @@ void specToChrom::fill_windows(){
 
   /*for (int i = 0; i < point_windows_.size(); i++) {
     std::cout << point_windows_[window_addresses_[i]].intensity_ << std::endl;
-  } */
+  }*/
 
+  std::cout << "leaving specToChrom::fill_windows" << std::endl;
 }
 
 /* figure out if the neighboring windows are actually neighboring m/z regions */
@@ -401,6 +461,7 @@ void specToChrom::neighbor_tables(){
 }
 
 void specToChrom::form_chromatograms(){
+  //std::cout << "entering specToChrom::form_chromatograms" << std::endl;
   neighbor_tables();
   int max_points = 0;
   int local_points;
@@ -430,16 +491,25 @@ void specToChrom::form_chromatograms(){
       high_w = &mz_windows_[ mz_window_id +1 ];
     }
 
+    local_points=0;
+
     check_point( point_windows_[ window_addresses_[i] ], local_points, lower_w, same_w, high_w );
     max_points = std::max(max_points, local_points);
   }
+
+  //std::cout << "leaving specToChrom::form_chromatograms" << std::endl;
 }
 
 void specToChrom::check_point(point &candidate, int &n_points, 
                               mz_window * lower_w,  mz_window * same_w, 
                               mz_window * high_w) {
-
-
+//std::cout << "entering specToChrom::check_point" << std::endl;
+  if (lower_w == nullptr && high_w == nullptr ) {
+    
+  } else if (lower_w == nullptr) {
+  } else if (high_w == nullptr) {
+  } else {
+  }
   /* if ( win_to_mzwin_[candidate_[window_id_]] ==0 ) {
   } else if ( win_to_mzwin_[candidate_[window_id_]] == 
               static_cast<int>((mz_windows_.size()-1))){
@@ -449,6 +519,7 @@ void specToChrom::check_point(point &candidate, int &n_points,
     same_w = 
     high_w = 
   } */
+//std::cout << "leaving specToChrom::check_point" << std::endl;
   
 }
 
