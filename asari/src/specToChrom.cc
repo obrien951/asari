@@ -272,6 +272,7 @@ void specToChrom::calc_windows(){
 
   windows_.resize(wall_count);
   windows_[0] = smallest_mz_;
+  std::cout << "wall_count is " << wall_count << std::endl;
 
   for (int i = 1; i < wall_count; i++) {
     windows_[i] = windows_[i-1] * bot_factor;
@@ -511,12 +512,13 @@ void specToChrom::determine_chromatograms(){
                  chrom_id, dist, wait, now, lower_w, same_w, high_w,
                  &assignees_bag[0] );
 
-    std::cout << "chrom_id is " << chrom_id << std::endl;
+    //std::cout << "chrom_id is " << chrom_id << std::endl;
 
     max_points = std::max(max_points, local_points);
     if (local_points != SHORT_PEAK) {chrom_id++;}
   }
 
+  std::cout << "chrom_id is " << chrom_id << std::endl;
   print_membership();
   //std::cout << "leaving specToChrom::form_chromatograms" << std::endl;
 }
@@ -540,12 +542,12 @@ void specToChrom::check_point(point &candidate, int &n_points, int &chrom_id,
 }
 
 void specToChrom::print_membership() {
-  for (int i = 0; i < point_windows_.size(); i++) {
-    if (point_windows_[i].chrom_id_ < 100 && point_windows_[i].chrom_id_ > -1) {
-      std::cout << "point_windows_[i].chrom_id_ is " << point_windows_[i].chrom_id_ << '\n';
-    }
-  }
-  std::cout << std::endl;
+  //for (int i = 0; i < point_windows_.size(); i++) {
+   // if (point_windows_[i].chrom_id_ < 100 && point_windows_[i].chrom_id_ > -1) {
+      //std::cout << "point_windows_[i].chrom_id_ is " << point_windows_[i].chrom_id_ << '\n';
+    //}
+  //}
+  //std::cout << std::endl;
 }
 
 
@@ -741,7 +743,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
       assignees[i]->chrom_id_ = chrom_id;
     }
   }
-}
+}//specToChrom::check_point_3w
 
 void specToChrom::check_point_2w(point &candidate, int &n_points,
                                  int &chrom_id, double &chrom_dist, 
@@ -879,12 +881,14 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
       assignees[i]->chrom_id_ = SHORT_PEAK;
     }
     n_points=SHORT_PEAK;
+    //std::cout << "Assigning SHORT_PEAK for length: " << top_id - bot_id << std::endl;
   } else {
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = chrom_id;
     }
+    //std::cout << "Assigning chrom_id for length: " << top_id - bot_id << std::endl;
   }
-}
+}// specToChrom::check_point_2w
 
 void specToChrom::check_point_1w(point &candidate, int &n_points,
                                  int &chrom_id, /* gets reset with the id for 
@@ -936,12 +940,14 @@ void specToChrom::check_point_1w(point &candidate, int &n_points,
       assignees[i]->chrom_id_ = SHORT_PEAK;
     }
     n_points = SHORT_PEAK;
+    //std::cout << "assigning SHORT_PEAK for length: " << top_id - bot_id << std::endl;
   } else {
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = chrom_id;
     }
+    //std::cout << "assigning chom_id for length: " << top_id - bot_id << std::endl;
   }
-}
+}// specToChrom::check_point_1w
 
 
 /* bit of a misnomer. This function looks in the area around a point to decide
