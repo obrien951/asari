@@ -47,6 +47,8 @@ public:
 
   int get_n_pts() {return n_pts_;}
 
+  double get_rt() {return rt_;}
+
   double* get_mzs() {return mzs_;}
   double* get_intns() {return intns_;}
 
@@ -124,12 +126,38 @@ protected:
   void calc_windows();
   void account_for_points();
   void fill_windows();
-  void form_chromatograms();
+  void determine_chromatograms();
+
+  void print_membership();
 
   void neighbor_tables();
 
-  void check_point(point &candidate, int &n_points, mz_window * lower_w,
-                   mz_window * same_w, mz_window * high_w);
+
+  void check_point_2w(point &candidate, int &n_points,
+                                 int &chrom_id, double &chrom_dist, 
+                                 double &wait, double &check_time,
+                                 mz_window * same_w, mz_window * other_w,
+                                 point ** assignees);
+
+  void check_point_3w(point &candidate, int &n_points,
+                                 int &chrom_id, double &chrom_dist,
+                                 double &wait, double &check_time,
+                                 mz_window * lower_w, mz_window * same_w,
+                                 mz_window * high_w, point ** assignees);
+
+
+  void check_point_1w(point &candidate, int &n_points, int &chrom_id, 
+                      double &chrom_dist, double &wait, double &check_time, 
+                      mz_window * same_w, point ** assignees);
+
+  void othercheck_point(point &candidate, int &n_points, int &chrom_id, 
+                   double &chrom_dist, double &wait, double &check_time,
+                   mz_window * lower_w, mz_window * same_w, mz_window * high_w);
+
+  void check_point(point &candidate, int &n_points, int &chrom_id, 
+                   double &chrom_dist, double &wait, double &check_time,
+                   mz_window * lower_w, mz_window * same_w, mz_window * high_w,
+                   point ** assignees);
 
   /* reset linked list traversal to front */
   void specRunToFront();
@@ -205,6 +233,12 @@ protected:
   double tolerance_ = 5.0;
   double width_ = tolerance_ * 1e-6;
 
+  double min_len_ = 2.0;
+  int min_steps_ = 5;
+
+  /* double time_len_ = ;
+  double neg_time_len_ = ;*/
+
   double minimum_intensity_;
 
   int hold_fpe_;
@@ -233,6 +267,9 @@ protected:
   int big_points_ = 0;
 
   int chrom_count_;
+
+  /* point count of the biggest window */
+  int max_window_pop_ = 0;
 
   std::string readFilename_;
   std::vector<char> parsedMzML_;
