@@ -271,8 +271,12 @@ void specToChrom::calc_windows(){
   }
 
   windows_.resize(wall_count);
+  rt_quai_.resize(wall_count);
+  in_quai_.resize(wall_count);
+  mz_quai_.resize(wall_count);
   windows_[0] = smallest_mz_;
   std::cout << "wall_count is " << wall_count << std::endl;
+  chroms_.resize(wall_count);
 
   for (int i = 1; i < wall_count; i++) {
     windows_[i] = windows_[i-1] * bot_factor;
@@ -505,12 +509,13 @@ void specToChrom::determine_chromatograms(){
       high_w = &mz_windows_[ mz_window_id +1 ];
     }
 
-
-
+    if (chrom_id > windows_.size()) {
+      chroms_.resize(chroms_.size()+windows_.size());
+    }
 
     check_point( point_windows_[ window_addresses_[i] ], local_points, 
                  chrom_id, dist, wait, now, lower_w, same_w, high_w,
-                 &assignees_bag[0] );
+                 &assignees_bag[0], chroms_[chrom_id] );
 
     //std::cout << "chrom_id is " << chrom_id << std::endl;
 
@@ -527,17 +532,19 @@ void specToChrom::check_point(point &candidate, int &n_points, int &chrom_id,
                               double &chrom_dist, double &wait, 
                               double &check_time, mz_window * lower_w,
                               mz_window * same_w, mz_window * high_w,
-                              point ** assignees) {
+                              point ** assignees, asari_point &chrom) {
   if ( lower_w == nullptr && high_w == nullptr ) {
     check_point_1w(candidate, n_points, chrom_id, chrom_dist, wait, check_time,
-                   same_w, assignees);
+                   same_w, assignees, chrom);
   } else if (lower_w == nullptr || high_w == nullptr) {
     mz_window * other_w = (lower_w == nullptr ? high_w : lower_w);
     check_point_2w(candidate, n_points, chrom_id, chrom_dist, wait, check_time,
-                   same_w, other_w,assignees );
+                   same_w, other_w,assignees, chrom, 
+                   (lower_w == nullptr ? chrom.h_count_ : chrom.l_count_ ),
+                   (lower_w == nullptr ? &(chrom.h_start_) : &(chrom.l_start_)));
   } else {
     check_point_3w(candidate, n_points, chrom_id, chrom_dist, wait, check_time,
-                   lower_w, same_w, high_w, assignees);
+                   lower_w, same_w, high_w, assignees, chrom);
   }
 }
 
@@ -555,8 +562,15 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
                                  int &chrom_id, double &chrom_dist, 
                                  double &wait, double &check_time, 
                                  mz_window * lower_w, mz_window * same_w,
-                                 mz_window * high_w, point ** assignees) {
+                                 mz_window * high_w, point ** assignees,
+                                 asari_point &chrom) {
   
+  chrom.l_start_ = nullptr;
+  chrom.h_start_ = nullptr;
+  chrom.l_count_ = 0;
+  chrom.s_count_ = 0;
+  chrom.h_count_ = 0;
+  chrom.start_id_ = spectra_.size();
   assignees[0] = &candidate;
   n_points = 1;
   int ind;
@@ -647,6 +661,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
         top_spec = same_w->start_[top_id].spec_id_;
         //same_w->start_[top_id].chrom_id_ = chrom_id;
         assignees[n_points]= &(same_w->start_[top_id]);
+        chrom.s_count_++;
         n_points++;
         walk_c = true;
       }
@@ -658,6 +673,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
         //lower_w->start_[l_top_id].chrom_id_ = chrom_id;
         assignees[n_points] = &(lower_w->start_[l_top_id]);
         n_points++;
+        chrom.l_count_++;
         l_walk_c = true;
       }
       l_top_id++;
@@ -667,6 +683,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
         top_spec = high_w->start_[h_top_id].spec_id_;
         //high_w->start_[h_top_id].chrom_id_ = chrom_id;
         assignees[n_points] = &(high_w->start_[h_top_id]);
+        chrom.h_count_++;
         n_points++;
         h_walk_c = true;
       }
@@ -708,6 +725,8 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
       if (std::abs( same_w->start_[bot_id].mz_ - candidate.mz_ )< width_ * candidate.mz_) {
         bot_spec = same_w->start_[bot_id].spec_id_;
         //same_w->start_[bot_id].chrom_id_ = chrom_id;
+        chrom.s_count_++;
+        chrom.s_start_ = &(same_w->start_[bot_id]);
         assignees[n_points] = &(same_w->start_[bot_id]);
         n_points++;
       }
@@ -716,7 +735,9 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
     while (l_bot_id > 0 && walk_spec - lower_w->start_[l_bot_id].spec_id_ < 2) {
       if (std::abs(lower_w->start_[l_bot_id].mz_ - candidate.mz_ )< width_ * candidate.mz_) {
         bot_spec = lower_w->start_[l_bot_id].spec_id_;
+        chrom.l_count_++;
         //lower_w->start_[l_bot_id].chrom_id_ = chrom_id;
+        chrom.l_start_ = &(lower_w->start_[l_bot_id]);
         assignees[n_points] = &(lower_w->start_[l_bot_id]);
         n_points++;
       }
@@ -726,6 +747,8 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
       if (std::abs(high_w->start_[h_bot_id].mz_ - candidate.mz_ )< width_ * candidate.mz_) {
         bot_spec = high_w->start_[h_bot_id].spec_id_;
         //high_w->start_[h_bot_id].chrom_id_ = chrom_id;
+        chrom.h_start_ = &(high_w->start_[h_bot_id]);
+        chrom.h_count_++;
         assignees[n_points] =&(high_w->start_[h_bot_id]);
         n_points++;
       }
@@ -733,7 +756,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
     }
     walk_spec = bot_spec;
   }
-  if (top_id - bot_id < min_steps_) {
+  if (top_spec - bot_spec < min_steps_) {
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = SHORT_PEAK;
     }
@@ -742,6 +765,7 @@ void specToChrom::check_point_3w(point &candidate, int &n_points,
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = chrom_id;
     }
+    chrom.chrom_len_ = top_spec - bot_spec;
   }
 }//specToChrom::check_point_3w
 
@@ -749,8 +773,14 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
                                  int &chrom_id, double &chrom_dist, 
                                  double &wait, double &check_time,
                                  mz_window * same_w, mz_window * other_w,
-                                 point ** assignees ) {
-
+                                 point ** assignees, asari_point &chrom,
+                                 int &o_count, point ** o_start) {
+  chrom.l_start_ = nullptr;
+  chrom.h_start_ = nullptr;
+  chrom.l_count_ = 0;
+  chrom.s_count_ = 0;
+  chrom.h_count_ = 0;
+  chrom.start_id_ = spectra_.size();
   assignees[0] = &candidate;
   n_points = 1;
   int ind;
@@ -816,6 +846,7 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
       if (std::abs(same_w->start_[top_id].mz_ - candidate.mz_ ) < width_ * candidate.mz_) {
         top_spec = same_w->start_[top_id].spec_id_;
         //same_w->start_[top_id].chrom_id_ = chrom_id;
+        chrom.s_count_++;
         assignees[n_points] = &(same_w->start_[top_id]);
         n_points++;
         walk_c = true;
@@ -828,6 +859,7 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
         //other_w->start_[o_top_id].chrom_id_ = chrom_id;
         assignees[n_points] = &(other_w->start_[o_top_id]);
         n_points++;
+        o_count++;
         o_walk_c = true;
       }
       o_top_id++;
@@ -861,6 +893,8 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
         bot_spec = same_w->start_[bot_id].spec_id_;
         //same_w->start_[bot_id].chrom_id_ = chrom_id;
         assignees[n_points] = &(same_w->start_[bot_id]);
+        chrom.s_start_ = &(same_w->start_[bot_id]);
+        chrom.s_count_++;
         n_points++;
       }
       bot_id--;
@@ -870,13 +904,15 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
         bot_spec = other_w->start_[o_bot_id].spec_id_;
         //other_w->start_[o_bot_id].chrom_id_ = chrom_id;
         assignees[n_points] = &(other_w->start_[o_bot_id]);
+        *o_start = &(other_w->start_[o_bot_id]);
+        o_count++;
         n_points++;
       }
       bot_id--;
     }
     walk_spec = bot_spec;
   }
-  if (top_id - bot_id < min_steps_) {
+  if (top_spec - bot_spec < min_steps_) {
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = SHORT_PEAK;
     }
@@ -886,6 +922,7 @@ void specToChrom::check_point_2w(point &candidate, int &n_points,
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = chrom_id;
     }
+    chrom.chrom_len_ = top_spec - bot_spec;
     //std::cout << "Assigning chrom_id for length: " << top_id - bot_id << std::endl;
   }
 }// specToChrom::check_point_2w
@@ -897,9 +934,18 @@ void specToChrom::check_point_1w(point &candidate, int &n_points,
                                  double &wait,
                                  double &check_time, 
                                  mz_window * same_w,
-                                 point ** assignees /*,
+                                 point ** assignees,
+                                 asari_point &chrom /*,
                                  mz_window * lower_w, 
                                  mz_window * high_w*/ ) {
+  chrom.l_start_ = nullptr;
+  chrom.h_start_ = nullptr;
+  chrom.l_count_ = 0;
+  chrom.s_count_ = 0;
+  chrom.h_count_ = 0;
+  chrom.start_id_ = spectra_.size();
+
+
   assignees[0] = &candidate;
   n_points = 1;
   int top_id;
@@ -916,6 +962,7 @@ void specToChrom::check_point_1w(point &candidate, int &n_points,
         } else {
           assignees[n_points] = &(same_w->start_[j]);
           n_points++;
+          chrom.s_count_++;
           //same_w->start_[j].chrom_id_ = chrom_id;
           top_id = same_w->start_[j].spec_id_;
         }
@@ -927,9 +974,13 @@ void specToChrom::check_point_1w(point &candidate, int &n_points,
           continue;
         } else {
           assignees[n_points] = &(same_w->start_[j]);
+          chrom.s_count_++;
+          chrom.start_id_ = std::min(same_w->start_[j].spec_id_, 
+                                     chrom.start_id_);
           n_points++;
           //same_w->start_[j].chrom_id_ = chrom_id;
           bot_id = same_w->start_[j].spec_id_;
+          chrom.s_start_ = &(same_w->start_[j]);
         }
       }
       break;
@@ -945,6 +996,7 @@ void specToChrom::check_point_1w(point &candidate, int &n_points,
     for (int i = 0; i < n_points; i++) {
       assignees[i]->chrom_id_ = chrom_id;
     }
+    chrom.chrom_len_ = top_id - bot_id;
     //std::cout << "assigning chom_id for length: " << top_id - bot_id << std::endl;
   }
 }// specToChrom::check_point_1w
@@ -1094,6 +1146,24 @@ void specToChrom::reset() {
   chrom_doc_.clear();
   parsedMzML_.clear();
   spectra_.clear();
+  
+  windows_.clear();
+  mz_windows_.clear();
+  point_windows_.clear();
+  window_addresses_.clear();
+
+  win_to_mzwin_.clear();
+  mzwin_to_win_.clear();
+
+  bigger_NT_.clear();
+  smaller_NT_.clear();
+
+  chroms_.clear();
+
+  rt_quai_.clear();
+  in_quai_.clear();
+  mz_quai_.clear();
+
   current_spec_ = nullptr;
 }
 

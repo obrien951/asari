@@ -2,17 +2,29 @@
 #define __ASARI_SPECTOCHROM__
 
 #define UNASSIGNED -1
+#define SHORT_PEAK -2
 
 #include <vector>
 #include <cstring>
 #include <string>
 #include <memory>
 
+#include <pybind11/pybind11.h>
+
 #include "rapidxml/rapidxml.hpp"
 
 #include "base64.h"
 
+namespace py = pybind11;
+
 namespace asaristc {
+
+struct basic_point {
+  double mz_;
+  double rt_;
+  double intn_;
+};
+
 
 struct point {
   double mz_;
@@ -23,9 +35,14 @@ struct point {
 };
 
 struct asari_point {
-  double mz_;
-  double rt_;
-  double intn_;
+  int start_id_;
+  int chrom_len_;
+  int l_count_;
+  int s_count_;
+  int h_count_;
+  point * l_start_;
+  point * s_start_;
+  point * h_start_;
 };
 
 struct mz_window {
@@ -51,7 +68,6 @@ public:
 
   double* get_mzs() {return mzs_;}
   double* get_intns() {return intns_;}
-
 protected:
   /* number of points */
   int n_pts_;
@@ -72,7 +88,7 @@ public:
   chromatogram(int &count, point &peak, double * mzs, double * rts, double * intns);
 protected:
   double mz_;
-  std::vector<asari_point> data;
+  std::vector<basic_point> data;
 };
 
 // reads spectra from an mzML file then writes them to a chromatogram file
@@ -103,6 +119,20 @@ public:
   void findChromatograms();
   /* write chromatograms to a rapidxml file*/
   void writeChromatograms(std::string fname);
+
+
+  int get_nchrom() {return chroms_.size();}
+
+  int get_chrom_len(int ind) {return static_cast<int>(chroms_[ind].chrom_len_);}
+
+  /* get chrom: Extracts mass_trace ind from the spectral points we've read
+   *
+   * ind: index of the eic to be copied in
+   * mz_s: double array of m/z values for points in the masstrace
+   * intnss: double array of intensity values for points in the masstrace
+   * rts: double array of retention time values for points in the masstrace */
+  void get_chrom(int &ind, py::list &mz_s, py::list &intnss, py::list &rts);
+
 protected:
   void parse_xml();
   void initiate_spectra();
@@ -137,18 +167,21 @@ protected:
                                  int &chrom_id, double &chrom_dist, 
                                  double &wait, double &check_time,
                                  mz_window * same_w, mz_window * other_w,
-                                 point ** assignees);
+                                 point ** assignees,
+                      asari_point &chrom, int &o_count, point ** o_start);
 
   void check_point_3w(point &candidate, int &n_points,
                                  int &chrom_id, double &chrom_dist,
                                  double &wait, double &check_time,
                                  mz_window * lower_w, mz_window * same_w,
-                                 mz_window * high_w, point ** assignees);
+                                 mz_window * high_w, point ** assignees,
+                      asari_point &chrom);
 
 
   void check_point_1w(point &candidate, int &n_points, int &chrom_id, 
                       double &chrom_dist, double &wait, double &check_time, 
-                      mz_window * same_w, point ** assignees);
+                      mz_window * same_w, point ** assignees,
+                      asari_point &chrom);
 
   void othercheck_point(point &candidate, int &n_points, int &chrom_id, 
                    double &chrom_dist, double &wait, double &check_time,
@@ -157,7 +190,7 @@ protected:
   void check_point(point &candidate, int &n_points, int &chrom_id, 
                    double &chrom_dist, double &wait, double &check_time,
                    mz_window * lower_w, mz_window * same_w, mz_window * high_w,
-                   point ** assignees);
+                   point ** assignees, asari_point &chrom);
 
   /* reset linked list traversal to front */
   void specRunToFront();
@@ -300,6 +333,12 @@ protected:
 
 
   std::vector<spectrum> spectra_;
+
+  std::vector<asari_point> chroms_;
+  /* workspace used for calculating chromatograms */
+  std::vector<double> rt_quai_;
+  std::vector<double> in_quai_;
+  std::vector<double> mz_quai_;
 
   int INSTAT_;
   int MZSTAT_;
