@@ -1,4 +1,5 @@
 #include "specToChrom.h"
+#include <iostream>
 
 namespace asaristc {
 

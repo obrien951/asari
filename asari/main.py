@@ -80,10 +80,13 @@ def read_project_dir(directory, file_pattern='chrom.mzML'):
             mz = [0.0 for i in range(count) ]
             RT = [0.0 for i in range(count) ]
             INTS = [0.0 for i in range(count) ]
+            k.get_chrom(i, mz, INTS, RT)
             mt_lists[ind].append(ext_MassTrace())
             mt_lists[ind][i].__init2__(mz, RT, INTS)
-            
-    print(mt_lists[ind][i])
+    
+    print("number of RTS is "+str(len(mt_lists[0][0].list_retention_time))) 
+    for i in range(len(mt_lists[0][0].list_retention_time)):
+        print("("+str(mt_lists[0][0].list_retention_time[i]) +","+str(mt_lists[0][0].list_intensity[i]) +")")
 
     return [os.path.join(directory, f) for f in os.listdir(directory) if file_pattern in f]
 
